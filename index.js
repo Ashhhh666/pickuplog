@@ -16,23 +16,24 @@ let saving = false;
 function loadConfig() {
     try {
         const data = FileLib.read(MODULE_NAME, CONFIG_FILE);
-        config = data ? JSON.parse(data) : { ...defaultConfig };
-        if (!data) saveConfig();
+        const parsed = data ? JSON.parse(data) : {};
+        config = (parsed && typeof parsed === "object" && !Array.isArray(parsed)) ? parsed : { ...defaultConfig };
     } catch (e) {
         config = { ...defaultConfig };
-        saveConfig();
     }
-
     // Fill missing keys with defaults
     for (const key in defaultConfig) {
         config[key] ??= defaultConfig[key];
     }
+    // Always save to fix corrupted file
+    saveConfig();
 }
 
 function saveConfig() {
     if (saving) return;
     saving = true;
-    FileLib.write(MODULE_NAME, CONFIG_FILE, JSON.stringify(config));
+    const safeConfig = (typeof config === "object" && config !== null) ? config : { ...defaultConfig };
+    FileLib.write(MODULE_NAME, CONFIG_FILE, JSON.stringify(safeConfig, null, 2));
     Client.scheduleTask(1, () => saving = false);
 }
 
@@ -54,11 +55,11 @@ const makeObj = (item, slot) => {
         if (id === 403) { // Book
             try {
                 name = item.func_82840_a(Player.getPlayer(), Client.getMinecraft().field_71474_y.field_82882_x)[1];
-            } catch {}
+            } catch (e) {}
         }
 
         return { id, stackSize: item.field_77994_a, name, item, slot };
-    } catch {
+    } catch (e) {
         return null;
     }
 };
@@ -86,7 +87,7 @@ const getSignature = (itemStack) => {
             ?.func_74781_a("textures")
             ?.func_150305_b(0)
             ?.func_74779_i("Signature");
-    } catch {
+    } catch (e) {
         return null;
     }
 };
